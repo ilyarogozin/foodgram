@@ -1,0 +1,5 @@
+{
+    "json.maxItemsComputed": 15000,
+    "python.linting.flake8Enabled": true,
+    "python.linting.enabled": true
+}
