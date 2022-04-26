@@ -1,9 +1,7 @@
-import base64
-
-from django.core.files.base import ContentFile
 from rest_framework import serializers
 
 from users.serializers import UserSerializer
+from .fields import Base64StrToFile
 from .models import (Favorite, Ingredient, IngredientInRecipe, Recipe,
                      ShoppingCart, Tag)
 
@@ -54,13 +52,6 @@ class ShoppingCartSerializer(serializers.ModelSerializer):
         fields = ('id', 'name', 'image', 'cooking_time')
 
 
-class Base64StrToFile(serializers.ImageField):
-    def to_internal_value(self, data):
-        fmt, imgstr = data.split(';base64,')
-        ext = fmt.split('/')[-1]
-        return ContentFile(base64.b64decode(imgstr), name='img.' + ext)
-
-
 class RecipeSerializer(serializers.ModelSerializer):
     image = Base64StrToFile()
     is_favorited = serializers.SerializerMethodField()
@@ -73,14 +64,20 @@ class RecipeSerializer(serializers.ModelSerializer):
         user = self.context.get('request').user
         return (
             user.is_authenticated
-            and Favorite.objects.filter(user__id=user.id, recipe__id=recipe.id).exists()
+            and Favorite.objects.filter(
+                user__id=user.id,
+                recipe__id=recipe.id
+            ).exists()
         )
 
     def get_is_in_shopping_cart(self, recipe):
         user = self.context.get('request').user
         return (
             user.is_authenticated
-            and ShoppingCart.objects.filter(user__id=user.id, recipe__id=recipe.id).exists()
+            and ShoppingCart.objects.filter(
+                user__id=user.id,
+                recipe__id=recipe.id
+            ).exists()
         )
 
     def get_ingredients(self, recipe):
@@ -95,9 +92,8 @@ class RecipeSerializer(serializers.ModelSerializer):
             )
         return cooking_time
 
-
-    def get_verified_ingredients(self):
-        ingredients = self.initial_data.get('ingredients')
+    def validate_ingredients(self, ingredients):
+        ingredients = self.data.get('ingredients')
         if not ingredients:
             raise serializers.ValidationError(
                 'Поле "ingredients" обязательное.'
@@ -135,8 +131,8 @@ class RecipeSerializer(serializers.ModelSerializer):
             result_ingredients.append((result_ingredient, amount))
         return result_ingredients
 
-    def get_verified_tags(self):
-        tags = self.initial_data.get('tags')
+    def validate_tags(self, tags):
+        tags = self.data.get('tags')
         if not tags:
             raise serializers.ValidationError('Поле "tags" обязательное.')
         result_tags = []
@@ -150,10 +146,9 @@ class RecipeSerializer(serializers.ModelSerializer):
             result_tags.append(tag)
         return result_tags
 
-    def create(self, validated_data):
-        ingredients = self.get_verified_ingredients()
-        tags = self.get_verified_tags()
-        recipe = Recipe.objects.create(**validated_data)
+    def preprocess_recipe(self, recipe):
+        ingredients = self.validate_ingredients()
+        tags = self.validate_tags()
         recipe.tags.set(tags)
         recipe.save()
         for ingredient, amount in ingredients:
@@ -162,26 +157,17 @@ class RecipeSerializer(serializers.ModelSerializer):
             )
         return recipe
 
+    def create(self, validated_data):
+        recipe = Recipe.objects.create(**validated_data)
+        return self.preprocess_recipe(recipe)
+
     def update(self, recipe, validated_data):
         ingredients_in_recipe = IngredientInRecipe.objects.filter(
             recipe__id=recipe.id
         )
         ingredients_in_recipe.delete()
-        recipe.name = validated_data.get('name', recipe.name)
-        recipe.text = validated_data.get('text', recipe.text)
-        recipe.image = validated_data.get('image', recipe.image)
-        recipe.cooking_time = validated_data.get(
-            'cooking_time', recipe.cooking_time
-        )
-        ingredients = self.get_verified_ingredients()
-        tags = self.get_verified_tags()
-        recipe.tags.set(tags)
-        recipe.save()
-        for ingredient, amount in ingredients:
-            IngredientInRecipe.objects.create(
-                amount=amount, ingredient=ingredient, recipe=recipe
-            )
-        return recipe
+        recipe = self.preprocess_recipe(recipe)
+        super().update(recipe, validated_data)
 
     class Meta:
         model = Recipe

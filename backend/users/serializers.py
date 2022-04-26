@@ -50,21 +50,26 @@ class SubscriptionSerializer(serializers.ModelSerializer):
     recipes = serializers.SerializerMethodField()
     recipes_count = serializers.ReadOnlyField(source='author.recipes.count')
 
-    class Meta:
-        model = Subscription
-        fields = ('email', 'id', 'username', 'first_name', 'last_name',
-                  'is_subscribed', 'recipes', 'recipes_count')
-
-    def get_is_subscribed(self, obj):
+    def get_is_subscribed(self, subscription):
         user = self.context.get('request').user
         return (
             user.is_authenticated
-            and Subscribtion.objects.filter(user=user, following=obj).exists()
+            and Subscription.objects.filter(
+                user=user,
+                author=subscription.author
+            ).exists()
         )
 
-    def get_recipes(self, obj):
+    def get_recipes(self, subscription):
         recipes_limit = self.context.get('request').GET.get('recipes_limit')
-        recipes = Recipe.objects.filter(author=obj.author)
+        recipes = Recipe.objects.filter(author=subscription.author)
         if recipes_limit:
             recipes = recipes[:int(recipes_limit)]
         return RecipeInSubscriptionSerializer(recipes, many=True).data
+
+    class Meta:
+        model = Subscription
+        fields = (
+            'email', 'id', 'username', 'first_name', 'last_name',
+            'is_subscribed', 'recipes', 'recipes_count'
+        )

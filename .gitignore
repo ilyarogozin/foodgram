@@ -101,6 +101,12 @@ celerybeat.pid
 # SageMath parsed files
 *.sage.py
 
+# media, static and env configs
+backend/media/
+media/
+static/
+.vscode/
+
 # Environments
 infra/.env
 .env
@@ -131,7 +137,3 @@ dmypy.json
 
 # .idea
 .idea
-
-
-backend/media/
-media/

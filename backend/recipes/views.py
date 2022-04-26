@@ -2,7 +2,6 @@ from io import BytesIO
 
 from django.db.models import Sum
 from django.http import FileResponse
-from django.shortcuts import get_object_or_404
 from reportlab.pdfgen import canvas
 from rest_framework import filters, mixins, status, viewsets
 from rest_framework.decorators import api_view, permission_classes
@@ -48,9 +47,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
         serializer.save(author=self.request.user)
 
 
-@api_view(['POST', 'DELETE'])
-@permission_classes([IsAuthenticated])
-def add_recipe_to_favorites(request, recipe_id):
+def add_recipe_to_favorite_or_shopping_cart(
+    request, recipe_id, model, serializer, message_in, message_out
+):
     user = request.user
     try:
         recipe = Recipe.objects.get(pk=recipe_id)
@@ -61,55 +60,41 @@ def add_recipe_to_favorites(request, recipe_id):
         )
     if request.method == 'DELETE':
         try:
-            favorite = Favorite.objects.get(user=user, recipe=recipe)
-        except Favorite.DoesNotExist:
+            obj = model.objects.get(user=user, recipe=recipe)
+        except model.DoesNotExist:
             return Response(
-                data={'errors': RECIPE_NOT_IN_FAVORITES},
+                data={'errors': message_out},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        favorite.delete()
+        obj.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
-    if Favorite.objects.filter(user=user, recipe=recipe).exists():
+    if model.objects.filter(user=user, recipe=recipe).exists():
         return Response(
-            data={'errors': RECIPE_ALREADY_IN_FAVORITES},
+            data={'errors': message_in},
             status=status.HTTP_400_BAD_REQUEST
         )
-    serializer = FavoriteSerializer(data=request.data)
+    serializer = serializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     serializer.save(user=user, recipe=recipe)
     return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def add_recipe_to_favorites(request, recipe_id):
+    add_recipe_to_favorite_or_shopping_cart(
+        request, recipe_id, Favorite, FavoriteSerializer,
+        RECIPE_ALREADY_IN_FAVORITES, RECIPE_NOT_IN_FAVORITES
+    )
 
 
 @api_view(['POST', 'DELETE'])
 @permission_classes([IsAuthenticated])
 def add_recipe_to_shopping_cart(request, recipe_id):
-    user = request.user
-    try:
-        recipe = Recipe.objects.get(pk=recipe_id)
-    except Recipe.DoesNotExist:
-        return Response(
-            data={'errors': RECIPE_NOT_EXISTS},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-    if request.method == 'DELETE':
-        try:
-            shopping_cart = ShoppingCart.objects.get(user=user, recipe=recipe)
-        except ShoppingCart.DoesNotExist:
-            return Response(
-                data={'errors': RECIPE_NOT_IN_SHOPPING_CART},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        shopping_cart.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-    if ShoppingCart.objects.filter(user=user, recipe=recipe).exists():
-        return Response(
-            data={'errors': RECIPE_ALREADY_IN_SHOPPING_CART},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-    serializer = ShoppingCartSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
-    serializer.save(user=user, recipe=recipe)
-    return Response(serializer.data, status=status.HTTP_201_CREATED)
+    add_recipe_to_favorite_or_shopping_cart(
+        request, recipe_id, ShoppingCart, ShoppingCartSerializer,
+        RECIPE_ALREADY_IN_SHOPPING_CART, RECIPE_NOT_IN_SHOPPING_CART
+    )
 
 
 @api_view(['GET'])
@@ -119,13 +104,13 @@ def download_shopping_cart(request):
         recipe__shopping_cart__author=request.user
     ).values(
         'ingredient__name', 'ingredient__measurement_unit'
-    ).annotate(amount=Sum('amount'))
+    ).annotate(sum=Sum('amount'))
     buffer = BytesIO()
     p = canvas.Canvas(buffer)
     for unit in shopping_cart:
         string = '{} ({}) - {}'.format(
             unit.get('ingredient__name'),
-            unit.get('amount'),
+            unit.get('sum'),
             unit.get('ingredient__measurement_unit'),
         )
     p.drawString(100, 100, string)
