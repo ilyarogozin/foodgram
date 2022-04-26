@@ -1,20 +1,12 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
-from recipes.models import Recipe
-
 
 class User(AbstractUser):
     first_name = models.CharField(verbose_name='Имя', max_length=150)
     last_name = models.CharField(verbose_name='Фамилия', max_length=150)
     email = models.EmailField(
         verbose_name='Почта', max_length=254, unique=True
-    )
-    shopping_cart = models.ManyToManyField(
-        Recipe, related_name='shopping_cart', verbose_name='Корзина'
-    )
-    favorites = models.ManyToManyField(
-        Recipe, related_name='favorites', verbose_name='Избранные рецепты'
     )
 
     class Meta:

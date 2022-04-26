@@ -9,12 +9,18 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Ingredient, IngredientInRecipe, Recipe, Tag
+from .models import (Favorite, Ingredient, IngredientInRecipe, Recipe,
+                     ShoppingCart, Tag)
 from .permissions import IsAuthorOrAdminOrReadOnly
-from .serializers import IngredientSerializer, TagSerializer, RecipeSerializer
+from .serializers import (FavoriteSerializer, IngredientSerializer,
+                          RecipeSerializer, ShoppingCartSerializer,
+                          TagSerializer)
 
-RECIPE_ALREADY_IN_SHOPPING_CART = 'Этот рецепт уже у вас в корзине.'
-RECIPE_ALREADY_IN_FAVORITES = 'Этот рецепт уже у вас в избранных.'
+RECIPE_ALREADY_IN_SHOPPING_CART = 'Рецепт уже в корзине!'
+RECIPE_NOT_IN_SHOPPING_CART = 'Рецепта нет в корзине!'
+RECIPE_ALREADY_IN_FAVORITES = 'Вы уже добавили рецепт в избранное!'
+RECIPE_NOT_IN_FAVORITES = 'Рецепта нет в избранных!'
+RECIPE_NOT_EXISTS = 'Рецепт не существует!'
 
 
 class IngredientViewSet(mixins.RetrieveModelMixin, mixins.ListModelMixin,
@@ -45,47 +51,65 @@ class RecipeViewSet(viewsets.ModelViewSet):
 @api_view(['POST', 'DELETE'])
 @permission_classes([IsAuthenticated])
 def add_recipe_to_favorites(request, recipe_id):
-    recipe = get_object_or_404(Recipe, pk=recipe_id)
     user = request.user
+    try:
+        recipe = Recipe.objects.get(pk=recipe_id)
+    except Recipe.DoesNotExist:
+        return Response(
+            data={'errors': RECIPE_NOT_EXISTS},
+            status=status.HTTP_400_BAD_REQUEST
+        )
     if request.method == 'DELETE':
-        user.favorites.remove(recipe)
+        try:
+            favorite = Favorite.objects.get(user=user, recipe=recipe)
+        except Favorite.DoesNotExist:
+            return Response(
+                data={'errors': RECIPE_NOT_IN_FAVORITES},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        favorite.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
-    if recipe.id in request.user.favorites.values_list('id', flat=True):
+    if Favorite.objects.filter(user=user, recipe=recipe).exists():
         return Response(
             data={'errors': RECIPE_ALREADY_IN_FAVORITES},
             status=status.HTTP_400_BAD_REQUEST
         )
-    user.favorites.add(recipe)
-    data = {
-        'id': recipe.id,
-        'name': recipe.name,
-        'image': recipe.image,
-        'cooking_time': recipe.cooking_time
-    }
-    return Response(data=data, status=status.HTTP_201_CREATED)
+    serializer = FavoriteSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    serializer.save(user=user, recipe=recipe)
+    return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 @api_view(['POST', 'DELETE'])
 @permission_classes([IsAuthenticated])
 def add_recipe_to_shopping_cart(request, recipe_id):
-    recipe = get_object_or_404(Recipe, pk=recipe_id)
     user = request.user
+    try:
+        recipe = Recipe.objects.get(pk=recipe_id)
+    except Recipe.DoesNotExist:
+        return Response(
+            data={'errors': RECIPE_NOT_EXISTS},
+            status=status.HTTP_400_BAD_REQUEST
+        )
     if request.method == 'DELETE':
-        user.favorites.remove(recipe)
+        try:
+            shopping_cart = ShoppingCart.objects.get(user=user, recipe=recipe)
+        except ShoppingCart.DoesNotExist:
+            return Response(
+                data={'errors': RECIPE_NOT_IN_SHOPPING_CART},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        shopping_cart.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
-    if recipe.id in request.user.favorites.values_list('id', flat=True):
+    if ShoppingCart.objects.filter(user=user, recipe=recipe).exists():
         return Response(
             data={'errors': RECIPE_ALREADY_IN_SHOPPING_CART},
             status=status.HTTP_400_BAD_REQUEST
         )
-    user.favorites.add(recipe)
-    data = {
-        'id': recipe.id,
-        'name': recipe.name,
-        'image': recipe.image,
-        'cooking_time': recipe.cooking_time
-    }
-    return Response(data=data, status=status.HTTP_201_CREATED)
+    serializer = ShoppingCartSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    serializer.save(user=user, recipe=recipe)
+    return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 @api_view(['GET'])

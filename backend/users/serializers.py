@@ -2,7 +2,7 @@ from djoser.serializers import UserCreateSerializer, UserSerializer
 from rest_framework import serializers
 
 from recipes.models import Recipe
-from .models import Subscribtion, User
+from .models import Subscription, User
 
 
 class UserCreateSerializer(UserCreateSerializer):
@@ -16,11 +16,11 @@ class UserCreateSerializer(UserCreateSerializer):
 class UserSerializer(UserSerializer):
     is_subscribed = serializers.SerializerMethodField()
 
-    def get_is_subscribed(self, obj):
+    def get_is_subscribed(self, author):
         user = self.context.get('request').user
         return (
             user.is_authenticated
-            and Subscribtion.objects.filter(user=user, following=obj).exists()
+            and Subscription.objects.filter(user=user, author=author).exists()
         )
 
     class Meta:
@@ -48,10 +48,10 @@ class SubscriptionSerializer(serializers.ModelSerializer):
     last_name = serializers.ReadOnlyField(source='author.last_name')
     is_subscribed = serializers.SerializerMethodField()
     recipes = serializers.SerializerMethodField()
-    recipes_count = serializers.SerializerMethodField()
+    recipes_count = serializers.ReadOnlyField(source='author.recipes.count')
 
     class Meta:
-        model = Subscribtion
+        model = Subscription
         fields = ('email', 'id', 'username', 'first_name', 'last_name',
                   'is_subscribed', 'recipes', 'recipes_count')
 
@@ -68,6 +68,3 @@ class SubscriptionSerializer(serializers.ModelSerializer):
         if recipes_limit:
             recipes = recipes[:int(recipes_limit)]
         return RecipeInSubscriptionSerializer(recipes, many=True).data
-
-    def get_recipes_count(self, obj):
-        return obj.author.recipes.count()
