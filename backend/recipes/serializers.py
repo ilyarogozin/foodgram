@@ -93,7 +93,6 @@ class RecipeSerializer(serializers.ModelSerializer):
         return cooking_time
 
     def validate_ingredients(self, ingredients):
-        ingredients = self.data.get('ingredients')
         if not ingredients:
             raise serializers.ValidationError(
                 'Поле "ingredients" обязательное.'
@@ -115,7 +114,7 @@ class RecipeSerializer(serializers.ModelSerializer):
                 )
             if pk in pks:
                 raise serializers.ValidationError(
-                    f'Повторный ингредиент: {ingredient.name}'
+                    f'Повторный ингредиент: id={pk}'
                 )
             pks.append(pk)
             try:
@@ -132,7 +131,6 @@ class RecipeSerializer(serializers.ModelSerializer):
         return result_ingredients
 
     def validate_tags(self, tags):
-        tags = self.data.get('tags')
         if not tags:
             raise serializers.ValidationError('Поле "tags" обязательное.')
         result_tags = []
@@ -167,7 +165,7 @@ class RecipeSerializer(serializers.ModelSerializer):
         )
         ingredients_in_recipe.delete()
         recipe = self.preprocess_recipe(recipe)
-        super().update(recipe, validated_data)
+        return super().update(recipe, validated_data)
 
     class Meta:
         model = Recipe
