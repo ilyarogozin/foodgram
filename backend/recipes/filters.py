@@ -1,7 +1,7 @@
 from enum import Enum
 
 from django_filters import rest_framework as fl
-from django_filters.filters import (ModelChoiceFilter, MultipleChoiceFilter,
+from django_filters.filters import (AllValuesMultipleFilter, ModelChoiceFilter,
                                     NumberFilter)
 
 from users.models import User
@@ -20,7 +20,7 @@ class IsInShoppingCart(Enum):
 
 class RecipeFilter(fl.FilterSet):
     author = ModelChoiceFilter(queryset=User.objects.all())
-    tags = MultipleChoiceFilter(field_name='tags__slug')
+    tags = AllValuesMultipleFilter(field_name='tags__slug')
     is_favorited = NumberFilter(method='get_is_favorited')
     is_in_shopping_cart = NumberFilter(method='get_is_in_shopping_cart')
 
