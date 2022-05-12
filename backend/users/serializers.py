@@ -32,6 +32,7 @@ class UserSerializer(UserSerializer):
 
 
 class RecipeInSubscriptionSerializer(serializers.ModelSerializer):
+    id = serializers.ReadOnlyField()
     name = serializers.ReadOnlyField()
     image = serializers.ImageField(read_only=True)
     cooking_time = serializers.ReadOnlyField()
@@ -61,7 +62,8 @@ class SubscriptionSerializer(serializers.ModelSerializer):
         )
 
     def get_recipes(self, subscription):
-        recipes_limit = self.context.get('request').GET.get('recipes_limit')
+        request = self.context.get('request')
+        recipes_limit = request.GET.get('recipes_limit')
         recipes = Recipe.objects.filter(author=subscription.author)
         if recipes_limit:
             recipes = recipes[:int(recipes_limit)]

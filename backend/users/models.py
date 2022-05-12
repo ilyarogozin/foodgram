@@ -3,6 +3,7 @@ from django.db import models
 
 
 class User(AbstractUser):
+    username = models.CharField('Логин', unique=True, max_length=150)
     first_name = models.CharField(verbose_name='Имя', max_length=150)
     last_name = models.CharField(verbose_name='Фамилия', max_length=150)
     email = models.EmailField(
@@ -10,7 +11,7 @@ class User(AbstractUser):
     )
 
     class Meta:
-        ordering = ('username',)
+        ordering = ('id',)
         verbose_name = 'Пользователь'
         verbose_name_plural = 'Пользователи'
 
@@ -40,5 +41,5 @@ class Subscription(models.Model):
         ]
 
     def __str__(self):
-        return (f'Подписчик: { self.user }\n'
-                f'Автор: { self.author }')
+        return (f'Подписчик: { self.user.username }\n'
+                f'Автор: { self.author.username }')

@@ -6,7 +6,6 @@ from rest_framework import filters, mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.serializers import ValidationError
 
 from .filters import RecipeFilter
 from .models import (Favorite, Ingredient, IngredientInRecipe, Recipe,
@@ -64,9 +63,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
             return Response(status=status.HTTP_204_NO_CONTENT)
         if model.objects.filter(recipe=recipe, user=user).exists():
             return Response(
-                    data={'errors': message_in},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+                data={'errors': message_in},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         serializer = class_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save(user=user, recipe=recipe)

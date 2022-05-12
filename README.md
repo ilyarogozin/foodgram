@@ -69,7 +69,8 @@ docker-compose exec backend python manage.py collectstatic --no-input
 
 - Заполните БД начальными данными:
 ```
-docker-compose exec backend python data_to_db.py
+docker-compose exec backend python manage.py loadjson --path 'data/ingredients.json'
+docker-compose exec backend python manage.py loadjson --path 'data/tags.json'
 ```
 
 ## Примеры запросов к API можно посмотреть по запросу:
