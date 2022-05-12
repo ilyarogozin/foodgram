@@ -57,18 +57,18 @@ class UserViewSet(mixins.CreateModelMixin, mixins.ListModelMixin,
     )
     def subscribe(self, request, id):
         user = request.user
-        author = get_object_or_404(User, id=id)
+        author = User.objects.get(id=id)
         if user == author:
             raise ValidationError(SUBSCRIBE_TO_YOURSELF)
         if request.method == 'DELETE':
-            object = Subscription.objects.filter(
+            subscription = Subscription.objects.filter(
                 author=author, user=user
             ).first()
-            if object is None:
+            if not subscription:
                 raise ValidationError(SUBSCRIPTION_DOES_NOT_EXIST)
-            object.delete()
+            subscription.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
-        if Subscription.objects.filter(user=user, author=author).exists():
+        if Subscription.objects.filter(author=author, user=user).exists():
             raise ValidationError(SUBSCRIPTION_ALREADY_EXISTS)
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
